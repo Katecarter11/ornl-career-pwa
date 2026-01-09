@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ORNL Career Path Finder</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#111827">
+
+  <!-- iOS Home Screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ORNL Careers">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; background: #f6f7fb; }
+    header { padding: 18px 16px; background: white; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; }
+    h1 { font-size: 18px; margin: 0; }
+    main { padding: 16px; max-width: 900px; margin: 0 auto; }
+    .card { background: white; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    input[type="text"] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 16px; }
+    button { padding: 12px 14px; border: 0; border-radius: 12px; background: #111827; color: white; font-size: 16px; }
+    button.secondary { background: #e5e7eb; color: #111827; }
+    .choice { display: block; width: 100%; text-align: left; padding: 12px; border-radius: 12px; border: 1px solid #d1d5db; background: #fff; margin: 8px 0; font-size: 16px; }
+    .choice.selected { border-color: #111827; box-shadow: 0 0 0 2px rgba(17,24,39,.08); }
+    .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #f3f4f6; border: 1px solid #e5e7eb; margin: 4px 6px 0 0; font-size: 13px; }
+    details summary { cursor: pointer; font-weight: 600; }
+    .muted { color: #6b7280; font-size: 14px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header><h1>ORNL Career Path Finder</h1></header>
+  <main>
+
+    <!-- Start screen -->
+    <section id="screen-start" class="card">
+      <h2>Start</h2>
+      <p class="muted">Enter a major or interest.</p>
+      <input id="interestInput" type="text" placeholder="e.g. computer science, biology, cybersecurity" />
+      <button id="startBtn">Start</button>
+    </section>
+
+    <!-- Questions -->
+    <section id="screen-questions" class="card hidden">
+      <h2>Quick Questions</h2>
+      <div id="questionBox"></div>
+      <div class="row">
+        <button id="backBtn" class="secondary">Back</button>
+        <button id="nextBtn">Next</button>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="screen-results" class="hidden">
+      <div class="card">
+        <h2>Your Results</h2>
+        <div id="tagPills"></div>
+      </div>
+      <div id="resultsBox"></div>
+      <button id="restartBtn" class="secondary">Start over</button>
+    </section>
+
+  </main>
+
+<script>
+const CONTENT = {
+  keywordToTags: [
+    { keywords:["computer","cs","software","coding"], tags:["software","coding","computing"] },
+    { keywords:["data","ai","machine learning"], tags:["data","ml","modeling"] },
+    { keywords:["cyber","security"], tags:["cyber","security","risk"] },
+    { keywords:["energy","power","grid"], tags:["energy","grid"] },
+    { keywords:["materials","chemistry"], tags:["materials","chemistry","lab"] }
+  ],
+  paths: [
+    { title:"Computational Science & AI", tags:["computing","software","data","ml","modeling"],
+      overview:"Use data and software to solve scientific problems.",
+      roles:["Data Scientist","ML Engineer","Research Software Engineer"] },
+    { title:"Cybersecurity & Secure Systems", tags:["cyber","security","risk"],
+      overview:"Protect systems and research infrastructure.",
+      roles:["Cybersecurity Analyst","Security Engineer","IAM Specialist"] },
+    { title:"Energy Systems & Grid", tags:["energy","grid","modeling"],
+      overview:"Model and improve energy systems.",
+      roles:["Power Systems Engineer","Energy Analyst","Controls Engineer"] },
+    { title:"Materials Science", tags:["materials","chemistry","lab"],
+      overview:"Design and test advanced materials.",
+      roles:["Materials Scientist","Characterization Scientist","Lab Research Associate"] }
+  ],
+  questions: [
+    { text:"Which sounds more like you?",
+      answers:[
+        { label:"Coding and data", deltas:{coding:2,data:2} },
+        { label:"Hands-on lab work", deltas:{lab:2,materials:1} }
+      ] }
+  ]
+};
+
+let tagScores = {}, qIndex = 0, answers = [];
+
+function addTags(d){ for(const k in d) tagScores[k]=(tagScores[k]||0)+d[k]; }
+function extract(text){
+  const t=text.toLowerCase();
+  CONTENT.keywordToTags.forEach(r=>{
+    r.keywords.forEach(k=>{ if(t.includes(k)) addTags(Object.fromEntries(r.tags.map(x=>[x,2]))) })
+  });
+}
+function score(p){ return p.tags.reduce((s,t)=>s+(tagScores[t]||0),0); }
+
+const qs = CONTENT.questions;
+const qBox = document.getElementById("questionBox");
+
+document.getElementById("startBtn").onclick=()=>{
+  tagScores={}; qIndex=0; answers=[];
+  extract(document.getElementById("interestInput").value);
+  document.getElementById("screen-start").classList.add("hidden");
+  document.getElementById("screen-questions").classList.remove("hidden");
+  renderQ();
+};
+
+function renderQ(){
+  const q=qs[qIndex];
+  qBox.innerHTML=`<p>${q.text}</p>`+q.answers.map((a,i)=>
+    `<button class="choice" onclick="pick(${i})">${a.label}</button>`).join("");
+}
+
+window.pick=i=>{ answers[qIndex]=i; };
+
+document.getElementById("nextBtn").onclick=()=>{
+  const a=answers[qIndex];
+  if(a==null){ alert("Pick one"); return; }
+  addTags(qs[qIndex].answers[a].deltas);
+  document.getElementById("screen-questions").classList.add("hidden");
+  document.getElementById("screen-results").classList.remove("hidden");
+  renderResults();
+};
+
+function renderResults(){
+  const r=document.getElementById("resultsBox");
+  r.innerHTML=CONTENT.paths
+    .map(p=>({...p,score:score(p)}))
+    .sort((a,b)=>b.score-a.score)
+    .map(p=>`
+      <div class="card">
+        <h3>${p.title}</h3>
+        <p>${p.overview}</p>
+        <ul>${p.roles.map(x=>`<li>${x}</li>`).join("")}</ul>
+      </div>`).join("");
+}
+
+document.getElementById("restartBtn").onclick=()=>location.reload();
+
+if("serviceWorker"in navigator){
+  navigator.serviceWorker.register("./service-worker.js");
+}
+</script>
+</body>
+</html>
